@@ -1,0 +1,60 @@
+
+name: Compilar APK Comanda Caito Food
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar proyecto
+        uses: actions/checkout@v4
+
+      - name: Extraer proyecto ZIP
+        run: |
+          mkdir extracted
+          ZIP=$(find . -maxdepth 1 -name "*.zip" | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "No se encontró el ZIP"
+            exit 1
+          fi
+          unzip -q "$ZIP" -d extracted
+
+      - name: Buscar proyecto Flutter
+        id: locate
+        run: |
+          FILE=$(find extracted -name pubspec.yaml | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "No se encontró pubspec.yaml"
+            exit 1
+          fi
+          DIR=$(dirname "$FILE")
+          echo "project_dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Instalar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Descargar dependencias
+        working-directory: ${{ steps.locate.outputs.project_dir }}
+        run: flutter pub get
+
+      - name: Compilar APK
+        working-directory: ${{ steps.locate.outputs.project_dir }}
+        run: flutter build apk --release
+
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Comanda-Caito-Food-APK
+          path: ${{ steps.locate.outputs.project_dir }}/build/app/outputs/flutter-apk/app-release.apk
